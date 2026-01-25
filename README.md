@@ -1,12 +1,14 @@
 # meridian
 Model that predicts whether a given genetic variant is pathogenic or benign.
 
+## Disclaimer
+
 **This tool is NOT intended for clinical use.** Predictions made by this model should never be used for medical diagnosis, treatment decisions, or clinical reporting. The model is error-prone, and it is simply a project of passion – it does NOT provide medical advice.
 
-## Data Privacy & Ethics Statement
+## Data Privacy
 
 ### Data Source
-This project uses publicly available, de-identified data from:
+This project pulls but does not store publicly available data from:
 - **ClinVar**: A public archive of reports about relationships between human variations and phenotypes, maintained by the National Center for Biotechnology Information (NCBI)
 
 ### Data Attribution
