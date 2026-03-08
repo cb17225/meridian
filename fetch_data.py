@@ -51,7 +51,7 @@ def summarize_data(filepath):
     """Load and display summary statistics."""
 
     print("\nLoading data...")
-    df = pd.read_csv(filepath, sep='\t', low_memory=False)
+    df = pd.read_csv(filepath, sep='\t', low_memory=False)  # large file with mixed-type columns
 
     print(f"\nDataset: {len(df):,} variants, {len(df.columns)} columns")
 
