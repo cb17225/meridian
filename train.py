@@ -1,12 +1,13 @@
 """
-Baseline model: Logistic Regression for variant pathogenicity prediction.
+Variant pathogenicity prediction: baseline and improved models.
 """
 
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (
     roc_auc_score,
     f1_score,
@@ -22,32 +23,62 @@ def load_data(features_path="data/features.json", target_path="data/target.json"
     return X, y
 
 
-def encode_features(X_train, X_val, X_test):
+def encode_features(X_train, X_val, X_test, method="label"):
     """
-    Encode categorical features as integers.
+    Encode categorical features.
 
-    Label encoding is used here for simplicity. It assigns an arbitrary integer
-    to each category. This works fine for tree-based models, but logistic regression
-    may interpret these as ordinal (i.e., gene 5 > gene 3). For the baseline this
-    is acceptable — we can revisit with target encoding or one-hot later.
+    Two methods available:
+    - "label": assigns an arbitrary integer per category. Fast and compact,
+      but implies a false ordering. Works well with tree-based models that
+      split on thresholds. Poor for linear models.
+    - "onehot": creates a binary column per category for low-cardinality
+      features (Chromosome, alleles). GeneSymbol stays label-encoded to
+      avoid creating thousands of sparse columns. Better for linear models
+      since each category gets its own independent weight.
 
-    The encoders are fit ONLY on the training set to prevent data leakage. Unseen
-    categories in val/test are mapped to -1.
+    Encoders are fit ONLY on the training set to prevent data leakage.
     """
     categorical_cols = ["GeneSymbol", "Chromosome", "ReferenceAlleleVCF", "AlternateAlleleVCF"]
     encoders = {}
 
-    for col in categorical_cols:
-        le = LabelEncoder()
-        X_train[col] = le.fit_transform(X_train[col])
+    if method == "label":
+        for col in categorical_cols:
+            le = LabelEncoder()
+            X_train[col] = le.fit_transform(X_train[col])
 
-        # Handle unseen categories in val/test
+            for df in [X_val, X_test]:
+                df[col] = df[col].map(
+                    {label: idx for idx, label in enumerate(le.classes_)}
+                ).fillna(-1).astype(int)
+
+            encoders[col] = le
+
+    elif method == "onehot":
+        # Label encode GeneSymbol (too many unique values for one-hot)
+        le = LabelEncoder()
+        X_train["GeneSymbol"] = le.fit_transform(X_train["GeneSymbol"])
         for df in [X_val, X_test]:
-            df[col] = df[col].map(
+            df["GeneSymbol"] = df["GeneSymbol"].map(
                 {label: idx for idx, label in enumerate(le.classes_)}
             ).fillna(-1).astype(int)
+        encoders["GeneSymbol"] = le
 
-        encoders[col] = le
+        # One-hot encode low-cardinality columns
+        onehot_cols = ["Chromosome", "ReferenceAlleleVCF", "AlternateAlleleVCF"]
+        ohe = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
+        ohe.fit(X_train[onehot_cols])
+
+        for df in [X_train, X_val, X_test]:
+            encoded = pd.DataFrame(
+                ohe.transform(df[onehot_cols]),
+                columns=ohe.get_feature_names_out(onehot_cols),
+                index=df.index,
+            )
+            df.drop(columns=onehot_cols, inplace=True)
+            for c in encoded.columns:
+                df[c] = encoded[c]
+
+        encoders["onehot"] = ohe
 
     return X_train, X_val, X_test, encoders
 
@@ -76,22 +107,32 @@ def split_data(X, y, val_size=0.15, test_size=0.15, random_state=42):
     return X_train, X_val, X_test, y_train, y_val, y_test
 
 
-def train_model(X_train, y_train):
+def train_model(X_train, y_train, model_type="logistic"):
     """
-    Train a logistic regression baseline.
+    Train a classification model.
 
-    class_weight='balanced' tells the model to upweight the minority class
-    (pathogenic) inversely proportional to its frequency. Without this, the
-    model could achieve ~85% accuracy by predicting benign for everything.
-
-    max_iter=1000 gives the solver enough iterations to converge on this
-    dataset size.
+    - "logistic": simple linear baseline. class_weight='balanced' upweights
+      the minority class inversely proportional to its frequency.
+    - "random_forest": ensemble of decision trees. Each tree sees a random
+      subset of samples (bagging) and features, then votes on the prediction.
+      Handles non-linear relationships and categorical features naturally.
+      n_estimators=200 means 200 trees vote. More trees = more stable
+      predictions but diminishing returns past a point.
     """
-    model = LogisticRegression(
-        class_weight="balanced",
-        max_iter=1000,
-        random_state=42,
-    )
+    if model_type == "logistic":
+        model = LogisticRegression(
+            class_weight="balanced",
+            max_iter=1000,
+            random_state=42,
+        )
+    elif model_type == "random_forest":
+        model = RandomForestClassifier(
+            n_estimators=200,
+            class_weight="balanced",
+            random_state=42,
+            n_jobs=-1,
+        )
+
     model.fit(X_train, y_train)
     return model
 
@@ -127,17 +168,36 @@ def main():
     X_train, X_val, X_test, y_train, y_val, y_test = split_data(X, y)
     print(f"\nTrain: {len(X_train):,} | Val: {len(X_val):,} | Test: {len(X_test):,}")
 
-    # Encode
-    X_train, X_val, X_test, encoders = encode_features(X_train, X_val, X_test)
+    # --- Baseline: Logistic Regression with label encoding ---
+    print("\n" + "#" * 50)
+    print("BASELINE: Logistic Regression (label encoding)")
+    print("#" * 50)
+    Xt, Xv, Xte, _ = encode_features(
+        X_train.copy(), X_val.copy(), X_test.copy(), method="label"
+    )
+    model = train_model(Xt, y_train, model_type="logistic")
+    evaluate(model, Xv, y_val, "Validation")
 
-    # Train
-    model = train_model(X_train, y_train)
+    # --- Improved: Logistic Regression with one-hot encoding ---
+    print("\n" + "#" * 50)
+    print("IMPROVED: Logistic Regression (one-hot encoding)")
+    print("#" * 50)
+    Xt, Xv, Xte, _ = encode_features(
+        X_train.copy(), X_val.copy(), X_test.copy(), method="onehot"
+    )
+    model = train_model(Xt, y_train, model_type="logistic")
+    evaluate(model, Xv, y_val, "Validation")
 
-    # Evaluate on val (used for tuning decisions)
-    val_metrics = evaluate(model, X_val, y_val, "Validation")
-
-    # Evaluate on test (final, unbiased estimate)
-    test_metrics = evaluate(model, X_test, y_test, "Test")
+    # --- Random Forest with label encoding ---
+    print("\n" + "#" * 50)
+    print("RANDOM FOREST (label encoding)")
+    print("#" * 50)
+    Xt, Xv, Xte, _ = encode_features(
+        X_train.copy(), X_val.copy(), X_test.copy(), method="label"
+    )
+    model = train_model(Xt, y_train, model_type="random_forest")
+    evaluate(model, Xv, y_val, "Validation")
+    evaluate(model, Xte, y_test, "Test")
 
 
 if __name__ == "__main__":
