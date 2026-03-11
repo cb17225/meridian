@@ -23,6 +23,46 @@ def load_data(features_path="data/features.json", target_path="data/target.json"
     return X, y
 
 
+def engineer_features(X_train, X_val, X_test, y_train):
+    """
+    Create new features from existing columns.
+
+    Target encoding: replace a categorical value with the mean target (pathogenic
+    rate) for that category, computed from the training set only. This converts
+    high-cardinality categoricals like GeneSymbol into a single numeric column
+    that directly captures the relationship with the target.
+
+    Unseen categories in val/test get the global training mean (prior) as a
+    fallback — a reasonable default that doesn't leak information.
+
+    is_transversion: purine (A, G) <-> pyrimidine (C, T) substitutions are
+    rarer but more disruptive than transitions (purine <-> purine or
+    pyrimidine <-> pyrimidine). The EDA showed transversions have roughly
+    double the pathogenic rate.
+    """
+    global_mean = y_train.mean()
+
+    # Target encode GeneSymbol
+    gene_rates = y_train.groupby(X_train["GeneSymbol"]).mean()
+    for df in [X_train, X_val, X_test]:
+        df["gene_pathogenic_rate"] = df["GeneSymbol"].map(gene_rates).fillna(global_mean)
+
+    # Target encode Chromosome
+    chrom_rates = y_train.groupby(X_train["Chromosome"]).mean()
+    for df in [X_train, X_val, X_test]:
+        df["chrom_pathogenic_rate"] = df["Chromosome"].map(chrom_rates).fillna(global_mean)
+
+    # Transversion flag
+    purines = {"A", "G"}
+    pyrimidines = {"C", "T"}
+    for df in [X_train, X_val, X_test]:
+        ref_is_purine = df["ReferenceAlleleVCF"].isin(purines)
+        alt_is_purine = df["AlternateAlleleVCF"].isin(purines)
+        df["is_transversion"] = (ref_is_purine != alt_is_purine).astype(int)
+
+    return X_train, X_val, X_test
+
+
 def encode_features(X_train, X_val, X_test, method="label"):
     """
     Encode categorical features.
@@ -195,6 +235,17 @@ def main():
     Xt, Xv, Xte, _ = encode_features(
         X_train.copy(), X_val.copy(), X_test.copy(), method="label"
     )
+    model = train_model(Xt, y_train, model_type="random_forest")
+    evaluate(model, Xv, y_val, "Validation")
+
+    # --- Random Forest with engineered features ---
+    print("\n" + "#" * 50)
+    print("RANDOM FOREST + FEATURE ENGINEERING")
+    print("#" * 50)
+    Xt, Xv, Xte = engineer_features(
+        X_train.copy(), X_val.copy(), X_test.copy(), y_train
+    )
+    Xt, Xv, Xte, _ = encode_features(Xt, Xv, Xte, method="label")
     model = train_model(Xt, y_train, model_type="random_forest")
     evaluate(model, Xv, y_val, "Validation")
     evaluate(model, Xte, y_test, "Test")
