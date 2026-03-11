@@ -4,10 +4,11 @@ Variant pathogenicity prediction: baseline and improved models.
 
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, ParameterGrid
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
 from sklearn.metrics import (
     roc_auc_score,
     f1_score,
@@ -172,6 +173,18 @@ def train_model(X_train, y_train, model_type="logistic"):
             random_state=42,
             n_jobs=-1,
         )
+    elif model_type == "xgboost":
+        # scale_pos_weight handles class imbalance for XGBoost — it's the
+        # ratio of negative to positive samples, equivalent to sklearn's
+        # class_weight='balanced'
+        neg = (y_train == 0).sum()
+        pos = (y_train == 1).sum()
+        model = XGBClassifier(
+            scale_pos_weight=neg / pos,
+            eval_metric="logloss",
+            random_state=42,
+            n_jobs=-1,
+        )
 
     model.fit(X_train, y_train)
     return model
@@ -196,6 +209,68 @@ def evaluate(model, X, y, split_name=""):
     print(confusion_matrix(y, y_pred))
 
     return {"auroc": auroc, "f1": f1}
+
+
+def tune_xgboost(X_train, y_train, X_val, y_val):
+    """
+    Tune XGBoost hyperparameters using the validation set.
+
+    Instead of cross-validation (which re-splits training data), we evaluate
+    each parameter combination directly on our held-out validation set. This
+    is simpler, faster, and consistent with how we evaluate all other models.
+
+    The grid is intentionally small — a coarse search over the most impactful
+    parameters. In practice you'd follow up with a finer search around the
+    best values, or use Bayesian optimization (e.g. Optuna).
+    """
+    neg = (y_train == 0).sum()
+    pos = (y_train == 1).sum()
+
+    param_grid = {
+        "max_depth": [4, 6, 8],
+        "learning_rate": [0.01, 0.1],
+        "n_estimators": [200, 500],
+        "subsample": [0.8, 1.0],
+        "colsample_bytree": [0.8, 1.0],
+    }
+
+    best_auroc = 0
+    best_params = None
+    total = len(list(ParameterGrid(param_grid)))
+
+    print(f"\nSearching {total} parameter combinations...")
+
+    for i, params in enumerate(ParameterGrid(param_grid), 1):
+        model = XGBClassifier(
+            **params,
+            scale_pos_weight=neg / pos,
+            eval_metric="logloss",
+            random_state=42,
+            n_jobs=-1,
+        )
+        model.fit(X_train, y_train)
+        y_prob = model.predict_proba(X_val)[:, 1]
+        auroc = roc_auc_score(y_val, y_prob)
+
+        if auroc > best_auroc:
+            best_auroc = auroc
+            best_params = params
+            print(f"  [{i}/{total}] AUROC={auroc:.4f} (new best) | {params}")
+
+    print(f"\nBest params: {best_params}")
+    print(f"Best validation AUROC: {best_auroc:.4f}")
+
+    # Retrain with best params
+    best_model = XGBClassifier(
+        **best_params,
+        scale_pos_weight=neg / pos,
+        eval_metric="logloss",
+        random_state=42,
+        n_jobs=-1,
+    )
+    best_model.fit(X_train, y_train)
+
+    return best_model, best_params
 
 
 def main():
@@ -247,6 +322,17 @@ def main():
     )
     Xt, Xv, Xte, _ = encode_features(Xt, Xv, Xte, method="label")
     model = train_model(Xt, y_train, model_type="random_forest")
+    evaluate(model, Xv, y_val, "Validation")
+
+    # --- Tuned XGBoost with engineered features ---
+    print("\n" + "#" * 50)
+    print("XGBOOST + FEATURE ENGINEERING (tuned)")
+    print("#" * 50)
+    Xt, Xv, Xte = engineer_features(
+        X_train.copy(), X_val.copy(), X_test.copy(), y_train
+    )
+    Xt, Xv, Xte, _ = encode_features(Xt, Xv, Xte, method="label")
+    model, best_params = tune_xgboost(Xt, y_train, Xv, y_val)
     evaluate(model, Xv, y_val, "Validation")
     evaluate(model, Xte, y_test, "Test")
 
