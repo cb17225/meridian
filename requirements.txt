@@ -5,3 +5,4 @@ seaborn
 jupyter
 scikit-learn
 xgboost
+shap

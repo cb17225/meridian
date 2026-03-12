@@ -2,6 +2,7 @@
 Variant pathogenicity prediction: baseline and improved models.
 """
 
+import argparse
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split, ParameterGrid
@@ -273,7 +274,29 @@ def tune_xgboost(X_train, y_train, X_val, y_val):
     return best_model, best_params
 
 
+EXPERIMENTS = {
+    "logistic": "Logistic Regression (label encoding)",
+    "logistic-onehot": "Logistic Regression (one-hot encoding)",
+    "rf": "Random Forest (label encoding)",
+    "rf-feat": "Random Forest + feature engineering",
+    "xgboost": "XGBoost + feature engineering (tuned)",
+}
+
+
 def main():
+    parser = argparse.ArgumentParser(description="Train variant pathogenicity models")
+    parser.add_argument(
+        "models",
+        nargs="*",
+        default=list(EXPERIMENTS.keys()),
+        choices=list(EXPERIMENTS.keys()) + ["all"],
+        help="Models to train (default: all)",
+    )
+    args = parser.parse_args()
+
+    if "all" in args.models:
+        args.models = list(EXPERIMENTS.keys())
+
     # Load
     X, y = load_data()
     print(f"Dataset: {len(X):,} samples, {X.shape[1]} features")
@@ -283,58 +306,48 @@ def main():
     X_train, X_val, X_test, y_train, y_val, y_test = split_data(X, y)
     print(f"\nTrain: {len(X_train):,} | Val: {len(X_val):,} | Test: {len(X_test):,}")
 
-    # --- Baseline: Logistic Regression with label encoding ---
-    print("\n" + "#" * 50)
-    print("BASELINE: Logistic Regression (label encoding)")
-    print("#" * 50)
-    Xt, Xv, Xte, _ = encode_features(
-        X_train.copy(), X_val.copy(), X_test.copy(), method="label"
-    )
-    model = train_model(Xt, y_train, model_type="logistic")
-    evaluate(model, Xv, y_val, "Validation")
+    for model_key in args.models:
+        print("\n" + "#" * 50)
+        print(EXPERIMENTS[model_key].upper())
+        print("#" * 50)
 
-    # --- Improved: Logistic Regression with one-hot encoding ---
-    print("\n" + "#" * 50)
-    print("IMPROVED: Logistic Regression (one-hot encoding)")
-    print("#" * 50)
-    Xt, Xv, Xte, _ = encode_features(
-        X_train.copy(), X_val.copy(), X_test.copy(), method="onehot"
-    )
-    model = train_model(Xt, y_train, model_type="logistic")
-    evaluate(model, Xv, y_val, "Validation")
+        if model_key == "logistic":
+            Xt, Xv, Xte, _ = encode_features(
+                X_train.copy(), X_val.copy(), X_test.copy(), method="label"
+            )
+            model = train_model(Xt, y_train, model_type="logistic")
+            evaluate(model, Xv, y_val, "Validation")
 
-    # --- Random Forest with label encoding ---
-    print("\n" + "#" * 50)
-    print("RANDOM FOREST (label encoding)")
-    print("#" * 50)
-    Xt, Xv, Xte, _ = encode_features(
-        X_train.copy(), X_val.copy(), X_test.copy(), method="label"
-    )
-    model = train_model(Xt, y_train, model_type="random_forest")
-    evaluate(model, Xv, y_val, "Validation")
+        elif model_key == "logistic-onehot":
+            Xt, Xv, Xte, _ = encode_features(
+                X_train.copy(), X_val.copy(), X_test.copy(), method="onehot"
+            )
+            model = train_model(Xt, y_train, model_type="logistic")
+            evaluate(model, Xv, y_val, "Validation")
 
-    # --- Random Forest with engineered features ---
-    print("\n" + "#" * 50)
-    print("RANDOM FOREST + FEATURE ENGINEERING")
-    print("#" * 50)
-    Xt, Xv, Xte = engineer_features(
-        X_train.copy(), X_val.copy(), X_test.copy(), y_train
-    )
-    Xt, Xv, Xte, _ = encode_features(Xt, Xv, Xte, method="label")
-    model = train_model(Xt, y_train, model_type="random_forest")
-    evaluate(model, Xv, y_val, "Validation")
+        elif model_key == "rf":
+            Xt, Xv, Xte, _ = encode_features(
+                X_train.copy(), X_val.copy(), X_test.copy(), method="label"
+            )
+            model = train_model(Xt, y_train, model_type="random_forest")
+            evaluate(model, Xv, y_val, "Validation")
 
-    # --- Tuned XGBoost with engineered features ---
-    print("\n" + "#" * 50)
-    print("XGBOOST + FEATURE ENGINEERING (tuned)")
-    print("#" * 50)
-    Xt, Xv, Xte = engineer_features(
-        X_train.copy(), X_val.copy(), X_test.copy(), y_train
-    )
-    Xt, Xv, Xte, _ = encode_features(Xt, Xv, Xte, method="label")
-    model, best_params = tune_xgboost(Xt, y_train, Xv, y_val)
-    evaluate(model, Xv, y_val, "Validation")
-    evaluate(model, Xte, y_test, "Test")
+        elif model_key == "rf-feat":
+            Xt, Xv, Xte = engineer_features(
+                X_train.copy(), X_val.copy(), X_test.copy(), y_train
+            )
+            Xt, Xv, Xte, _ = encode_features(Xt, Xv, Xte, method="label")
+            model = train_model(Xt, y_train, model_type="random_forest")
+            evaluate(model, Xv, y_val, "Validation")
+
+        elif model_key == "xgboost":
+            Xt, Xv, Xte = engineer_features(
+                X_train.copy(), X_val.copy(), X_test.copy(), y_train
+            )
+            Xt, Xv, Xte, _ = encode_features(Xt, Xv, Xte, method="label")
+            model, best_params = tune_xgboost(Xt, y_train, Xv, y_val)
+            evaluate(model, Xv, y_val, "Validation")
+            evaluate(model, Xte, y_test, "Test")
 
 
 if __name__ == "__main__":
