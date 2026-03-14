@@ -12,19 +12,21 @@ across all possible feature combinations, giving a fair attribution.
 """
 
 import matplotlib
+
 matplotlib.use("Agg")
 
 import os
+
 import joblib
-import pandas as pd
+import matplotlib.pyplot as plt
 import numpy as np
 import shap
-import matplotlib.pyplot as plt
+
 from train import (
+    encode_features,
+    engineer_features,
     load_data,
     split_data,
-    engineer_features,
-    encode_features,
 )
 
 
@@ -89,7 +91,7 @@ def main():
     Xt, Xv, Xte, _ = encode_features(Xt, Xv, Xte, method="label")
 
     # Run SHAP on validation set
-    shap_values = run_shap_analysis(model, Xv, feature_names)
+    run_shap_analysis(model, Xv, feature_names)
 
     print("\nPlots saved to figures/shap_summary.png and figures/shap_importance.png")
 

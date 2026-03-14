@@ -3,21 +3,21 @@ Variant pathogenicity prediction: baseline and improved models.
 """
 
 import argparse
-import joblib
 import os
+
+import joblib
 import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split, ParameterGrid
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
-    roc_auc_score,
-    f1_score,
     classification_report,
     confusion_matrix,
+    f1_score,
+    roc_auc_score,
 )
+from sklearn.model_selection import ParameterGrid, train_test_split
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from xgboost import XGBClassifier
 
 
 def load_data(features_path="data/features.json", target_path="data/target.json"):
@@ -58,7 +58,6 @@ def engineer_features(X_train, X_val, X_test, y_train):
 
     # Transversion flag
     purines = {"A", "G"}
-    pyrimidines = {"C", "T"}
     for df in [X_train, X_val, X_test]:
         ref_is_purine = df["ReferenceAlleleVCF"].isin(purines)
         alt_is_purine = df["AlternateAlleleVCF"].isin(purines)
@@ -206,9 +205,9 @@ def evaluate(model, X, y, split_name=""):
     print(f"{'=' * 40}")
     print(f"AUROC: {auroc:.4f}")
     print(f"F1 (pathogenic): {f1:.4f}")
-    print(f"\nClassification Report:")
+    print("\nClassification Report:")
     print(classification_report(y, y_pred, target_names=["Benign", "Pathogenic"]))
-    print(f"Confusion Matrix:")
+    print("Confusion Matrix:")
     print(confusion_matrix(y, y_pred))
 
     return {"auroc": auroc, "f1": f1}

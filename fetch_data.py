@@ -2,11 +2,13 @@
 Download ClinVar variant summary data from NCBI.
 """
 
-import urllib.request
 import gzip
-import shutil
 import os
+import shutil
+import urllib.request
+
 import pandas as pd
+
 
 def download_clinvar(data_dir="data", force=False):
     """
@@ -75,6 +77,6 @@ def summarize_data(filepath):
 if __name__ == "__main__":
     filepath = download_clinvar()
     df = summarize_data(filepath)
-    print(f"\nData extraction complete!")
+    print("\nData extraction complete!")
     print(f"Location: {filepath}")
     print(f"\nLoad with: pd.read_csv('{filepath}', sep='\\t')")

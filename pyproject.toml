@@ -1,0 +1,9 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# E: pycodestyle errors, F: pyflakes, I: isort (import sorting)
+select = ["E", "F", "I"]
+# Allow unused imports in __init__.py files
+per-file-ignores = {"__init__.py" = ["F401"]}

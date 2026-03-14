@@ -6,3 +6,5 @@ jupyter
 scikit-learn
 xgboost
 shap
+pytest
+ruff
