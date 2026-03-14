@@ -14,6 +14,8 @@ across all possible feature combinations, giving a fair attribution.
 import matplotlib
 matplotlib.use("Agg")
 
+import os
+import joblib
 import pandas as pd
 import numpy as np
 import shap
@@ -23,7 +25,6 @@ from train import (
     split_data,
     engineer_features,
     encode_features,
-    tune_xgboost,
 )
 
 
@@ -38,10 +39,6 @@ def run_shap_analysis(model, X, feature_names, output_dir="figures"):
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(X)
 
-    # Summary plot: shows which features matter most and how they affect predictions.
-    # Each dot is one sample. Position on x-axis = SHAP value (impact on prediction).
-    # Color = feature value (red = high, blue = low).
-    # A red dot on the right means "high feature value pushes prediction toward pathogenic".
     print("\nGenerating SHAP summary plot...")
     plt.figure(figsize=(10, 8))
     shap.summary_plot(shap_values, X, feature_names=feature_names, show=False)
@@ -49,9 +46,6 @@ def run_shap_analysis(model, X, feature_names, output_dir="figures"):
     plt.savefig(f"{output_dir}/shap_summary.png", dpi=150, bbox_inches="tight")
     plt.close()
 
-    # Bar plot: global feature importance (mean absolute SHAP value per feature).
-    # Simpler view — just shows which features matter most overall, without
-    # showing directionality.
     print("Generating SHAP feature importance plot...")
     plt.figure(figsize=(10, 6))
     shap.summary_plot(
@@ -61,7 +55,6 @@ def run_shap_analysis(model, X, feature_names, output_dir="figures"):
     plt.savefig(f"{output_dir}/shap_importance.png", dpi=150, bbox_inches="tight")
     plt.close()
 
-    # Print top features by mean absolute SHAP value
     mean_abs_shap = np.abs(shap_values).mean(axis=0)
     feature_importance = sorted(
         zip(feature_names, mean_abs_shap), key=lambda x: x[1], reverse=True
@@ -74,22 +67,28 @@ def run_shap_analysis(model, X, feature_names, output_dir="figures"):
 
 
 def main():
-    # Rebuild the best model pipeline
+    model_path = "models/xgboost_best.joblib"
+    features_path = "models/feature_names.joblib"
+
+    # Load saved model if available, otherwise retrain
+    if os.path.exists(model_path) and os.path.exists(features_path):
+        print("Loading saved model...")
+        model = joblib.load(model_path)
+        feature_names = joblib.load(features_path)
+    else:
+        print("No saved model found. Run 'python train.py xgboost' first.")
+        return
+
+    # Prepare validation data with same pipeline
     X, y = load_data()
     X_train, X_val, X_test, y_train, y_val, y_test = split_data(X, y)
 
-    # Feature engineering + encoding (same as train.py)
     Xt, Xv, Xte = engineer_features(
         X_train.copy(), X_val.copy(), X_test.copy(), y_train
     )
     Xt, Xv, Xte, _ = encode_features(Xt, Xv, Xte, method="label")
 
-    # Tune and get best model
-    print("Training tuned XGBoost model...")
-    model, best_params = tune_xgboost(Xt, y_train, Xv, y_val)
-
     # Run SHAP on validation set
-    feature_names = list(Xv.columns)
     shap_values = run_shap_analysis(model, Xv, feature_names)
 
     print("\nPlots saved to figures/shap_summary.png and figures/shap_importance.png")

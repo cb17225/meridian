@@ -3,6 +3,8 @@ Variant pathogenicity prediction: baseline and improved models.
 """
 
 import argparse
+import joblib
+import os
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split, ParameterGrid
@@ -348,6 +350,12 @@ def main():
             model, best_params = tune_xgboost(Xt, y_train, Xv, y_val)
             evaluate(model, Xv, y_val, "Validation")
             evaluate(model, Xte, y_test, "Test")
+
+            # Save model and feature names for analyze.py
+            os.makedirs("models", exist_ok=True)
+            joblib.dump(model, "models/xgboost_best.joblib")
+            joblib.dump(list(Xv.columns), "models/feature_names.joblib")
+            print("\nModel saved to models/xgboost_best.joblib")
 
 
 if __name__ == "__main__":

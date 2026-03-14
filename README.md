@@ -10,18 +10,46 @@ Binary classification model predicting whether a genetic variant is pathogenic (
 1. **`fetch_data.py`** — downloads `variant_summary.txt.gz` from NCBI FTP and extracts it to `data/`
 2. **`data_cleaning.ipynb`** — filters to high-confidence SNVs on GRCh38, encodes labels, and saves `data/features.json` and `data/target.json`
 3. **`eda.ipynb`** — exploratory analysis of class distribution, top genes, chromosome-level pathogenic rates, and nucleotide substitution patterns
+4. **`train.py`** — trains and evaluates models with CLI model selection
+5. **`analyze.py`** — SHAP interpretability analysis on the best model
 
 ## Features
 
+| Feature | Type | Description |
+|---|---|---|
+| `GeneSymbol` | categorical | Gene the variant falls in |
+| `Chromosome` | categorical | Chromosome (1–22, X, Y) |
+| `Start` | numeric | Genomic position |
+| `ReferenceAlleleVCF` | categorical | Reference nucleotide |
+| `AlternateAlleleVCF` | categorical | Alternate nucleotide |
+| `NumberSubmitters` | numeric | Number of labs that submitted evidence |
+| `SubmitterCategories` | numeric | Type of submitting organization |
+| `n_phenotypes` | numeric | Number of associated phenotypes |
+
+### Engineered Features
+
 | Feature | Description |
 |---|---|
-| `GeneSymbol` | Gene the variant falls in |
-| `Chromosome` | Chromosome (1–22, X, Y) |
-| `Start` / `Stop` | Genomic position |
-| `ReferenceAlleleVCF` | Reference nucleotide |
-| `AlternateAlleleVCF` | Alternate nucleotide |
+| `gene_pathogenic_rate` | Target-encoded GeneSymbol (per-gene pathogenic rate) |
+| `chrom_pathogenic_rate` | Target-encoded Chromosome |
+| `is_transversion` | Purine ↔ pyrimidine substitution flag |
 
 **Target**: `label` — 1 (Pathogenic / Likely pathogenic), 0 (Benign / Likely benign). Class imbalance ~85% benign / ~15% pathogenic.
+
+## Usage
+
+```bash
+# Fetch raw data
+python fetch_data.py
+
+# Train specific models
+python train.py xgboost
+python train.py logistic rf
+python train.py              # all models
+
+# Run SHAP analysis
+python analyze.py
+```
 
 ## Data Source
 
