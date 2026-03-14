@@ -48,8 +48,6 @@ class VariantInput(BaseModel):
     Start: int = Field(ge=1, le=250_000_000)
     ReferenceAlleleVCF: Literal[*VALID_ALLELES]
     AlternateAlleleVCF: Literal[*VALID_ALLELES]
-    NumberSubmitters: int = Field(ge=1, le=1000)
-    SubmitterCategories: int = Field(ge=1, le=10)
     n_phenotypes: int = Field(ge=1, le=100)
 
 

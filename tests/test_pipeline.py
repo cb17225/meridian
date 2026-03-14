@@ -29,8 +29,6 @@ def synthetic_data():
         "Start": np.random.randint(1, 250_000_000, n),
         "ReferenceAlleleVCF": np.random.choice(alleles, n),
         "AlternateAlleleVCF": np.random.choice(alleles, n),
-        "NumberSubmitters": np.random.randint(1, 20, n),
-        "SubmitterCategories": np.random.choice([2, 3], n, p=[0.85, 0.15]),
         "n_phenotypes": np.random.randint(1, 5, n),
     })
 
