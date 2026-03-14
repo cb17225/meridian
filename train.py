@@ -228,9 +228,9 @@ def tune_xgboost(X_train, y_train, X_val, y_val):
     pos = (y_train == 1).sum()
 
     param_grid = {
-        "max_depth": [4, 6, 8],
-        "learning_rate": [0.01, 0.1],
-        "n_estimators": [200, 500],
+        "max_depth": [4, 6, 8, 10],
+        "learning_rate": [0.01, 0.05, 0.1],
+        "n_estimators": [200, 500, 1000],
         "subsample": [0.8, 1.0],
         "colsample_bytree": [0.8, 1.0],
     }
