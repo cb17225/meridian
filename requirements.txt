@@ -6,5 +6,9 @@ jupyter
 scikit-learn
 xgboost
 shap
+fastapi
+uvicorn
+streamlit
+requests
 pytest
 ruff

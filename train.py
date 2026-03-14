@@ -345,16 +345,30 @@ def main():
             Xt, Xv, Xte = engineer_features(
                 X_train.copy(), X_val.copy(), X_test.copy(), y_train
             )
-            Xt, Xv, Xte, _ = encode_features(Xt, Xv, Xte, method="label")
+            Xt, Xv, Xte, encoders = encode_features(Xt, Xv, Xte, method="label")
             model, best_params = tune_xgboost(Xt, y_train, Xv, y_val)
             evaluate(model, Xv, y_val, "Validation")
             evaluate(model, Xte, y_test, "Test")
 
-            # Save model and feature names for analyze.py
+            # Save model and preprocessing artifacts for deployment
             os.makedirs("models", exist_ok=True)
             joblib.dump(model, "models/xgboost_best.joblib")
             joblib.dump(list(Xv.columns), "models/feature_names.joblib")
             print("\nModel saved to models/xgboost_best.joblib")
+
+            # Save everything the API needs to preprocess raw input
+            # Without these, the API can't replicate the exact same
+            # feature engineering and encoding that training used
+            pipeline = {
+                "model": model,
+                "feature_names": list(Xv.columns),
+                "gene_rates": y_train.groupby(X_train["GeneSymbol"]).mean().to_dict(),
+                "chrom_rates": y_train.groupby(X_train["Chromosome"]).mean().to_dict(),
+                "global_mean": y_train.mean(),
+                "label_encoders": encoders,
+            }
+            joblib.dump(pipeline, "models/pipeline.joblib")
+            print("Pipeline saved to models/pipeline.joblib")
 
 
 if __name__ == "__main__":
