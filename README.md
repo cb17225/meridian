@@ -22,8 +22,6 @@ Binary classification model predicting whether a genetic variant is pathogenic (
 | `Start` | numeric | Genomic position |
 | `ReferenceAlleleVCF` | categorical | Reference nucleotide |
 | `AlternateAlleleVCF` | categorical | Alternate nucleotide |
-| `NumberSubmitters` | numeric | Number of labs that submitted evidence |
-| `SubmitterCategories` | numeric | Type of submitting organization |
 | `n_phenotypes` | numeric | Number of associated phenotypes |
 
 ### Engineered Features
@@ -49,6 +47,29 @@ python train.py              # all models
 
 # Run SHAP analysis
 python analyze.py
+```
+
+## Deployment
+
+The project includes a FastAPI prediction API and a Streamlit frontend.
+
+```bash
+# Start the API
+uvicorn api:app --reload
+
+# Start the frontend (in a separate terminal)
+streamlit run app.py
+```
+
+The API serves predictions at `http://localhost:8000/predict` and the frontend is available at `http://localhost:8501`.
+
+## CI
+
+Linting and smoke tests run automatically on push and PR via GitHub Actions. To run locally:
+
+```bash
+ruff check .
+python -m pytest tests/ -v
 ```
 
 ## Data Source
