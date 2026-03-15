@@ -24,6 +24,7 @@ col1, col2 = st.columns(2)
 with col1:
     gene = st.text_input("Gene Symbol", value="BRCA1", max_chars=50)
     chrom = st.selectbox("Chromosome", [str(i) for i in range(1, 23)] + ["X", "Y"])
+    cyto = st.text_input("Cytogenetic Band", value="17q21.31", max_chars=20)
     start = st.number_input("Genomic Position (Start)", min_value=1, value=43094464)
 
 with col2:
@@ -36,6 +37,7 @@ if st.button("Predict", type="primary"):
     payload = {
         "GeneSymbol": gene,
         "Chromosome": chrom,
+        "Cytogenetic": cyto,
         "Start": start,
         "ReferenceAlleleVCF": ref_allele,
         "AlternateAlleleVCF": alt_allele,

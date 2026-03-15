@@ -48,6 +48,7 @@ class VariantInput(BaseModel):
     """Raw variant features — same schema as the training data."""
     GeneSymbol: str = Field(min_length=1, max_length=50)
     Chromosome: Literal[*VALID_CHROMOSOMES]
+    Cytogenetic: str = Field(min_length=1, max_length=20)
     Start: int = Field(ge=1, le=250_000_000)
     ReferenceAlleleVCF: Literal[*VALID_ALLELES]
     AlternateAlleleVCF: Literal[*VALID_ALLELES]
@@ -71,6 +72,11 @@ def preprocess(variant: VariantInput) -> pd.DataFrame:
 
     row["gene_pathogenic_rate"] = row["GeneSymbol"].map(gene_rates).fillna(global_mean)
     row["chrom_pathogenic_rate"] = row["Chromosome"].map(chrom_rates).fillna(global_mean)
+
+    # Cytogenetic band target encoding
+    if "cyto_rates" in pipeline:
+        cyto_rates = pipeline["cyto_rates"]
+        row["cyto_pathogenic_rate"] = row["Cytogenetic"].map(cyto_rates).fillna(global_mean)
 
     # Transversion flag
     purines = {"A", "G"}

@@ -19,6 +19,7 @@ Binary classification model predicting whether a genetic variant is pathogenic (
 |---|---|---|
 | `GeneSymbol` | categorical | Gene the variant falls in |
 | `Chromosome` | categorical | Chromosome (1–22, X, Y) |
+| `Cytogenetic` | categorical | Cytogenetic band (e.g., 17q21.31) |
 | `Start` | numeric | Genomic position |
 | `ReferenceAlleleVCF` | categorical | Reference nucleotide |
 | `AlternateAlleleVCF` | categorical | Alternate nucleotide |
@@ -30,6 +31,7 @@ Binary classification model predicting whether a genetic variant is pathogenic (
 |---|---|
 | `gene_pathogenic_rate` | Target-encoded GeneSymbol (per-gene pathogenic rate) |
 | `chrom_pathogenic_rate` | Target-encoded Chromosome |
+| `cyto_pathogenic_rate` | Target-encoded Cytogenetic band |
 | `is_transversion` | Purine ↔ pyrimidine substitution flag |
 
 **Target**: `label` — 1 (Pathogenic / Likely pathogenic), 0 (Benign / Likely benign). Class imbalance ~85% benign / ~15% pathogenic.
@@ -41,8 +43,9 @@ Binary classification model predicting whether a genetic variant is pathogenic (
 python src/fetch_data.py
 
 # Train specific models
-python src/train.py xgboost
-python src/train.py logistic rf
+python src/train.py ensemble     # best model (XGBoost + RF ensemble)
+python src/train.py xgboost      # single XGBoost
+python src/train.py logistic rf  # multiple models
 python src/train.py              # all models
 
 # Run SHAP analysis

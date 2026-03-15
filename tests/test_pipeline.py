@@ -21,11 +21,13 @@ def synthetic_data():
 
     genes = ["BRCA1", "BRCA2", "MLH1", "TP53", "CFTR", "LDLR", "APC", "NF1"]
     chroms = [str(i) for i in range(1, 23)] + ["X", "Y"]
+    cyto_bands = ["17q21.31", "13q13.1", "3p21.3", "17p13.1", "7q31.2", "19p13.2"]
     alleles = ["A", "C", "G", "T"]
 
     X = pd.DataFrame({
         "GeneSymbol": np.random.choice(genes, n),
         "Chromosome": np.random.choice(chroms, n),
+        "Cytogenetic": np.random.choice(cyto_bands, n),
         "Start": np.random.randint(1, 250_000_000, n),
         "ReferenceAlleleVCF": np.random.choice(alleles, n),
         "AlternateAlleleVCF": np.random.choice(alleles, n),

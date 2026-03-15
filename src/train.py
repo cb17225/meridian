@@ -57,6 +57,13 @@ def engineer_features(X_train, X_val, X_test, y_train):
     for df in [X_train, X_val, X_test]:
         df["chrom_pathogenic_rate"] = df["Chromosome"].map(chrom_rates).fillna(global_mean)
 
+    # Target encode Cytogenetic band — finer-grained than chromosome,
+    # captures arm (p/q) and band-level pathogenic rates
+    if "Cytogenetic" in X_train.columns:
+        cyto_rates = y_train.groupby(X_train["Cytogenetic"]).mean()
+        for df in [X_train, X_val, X_test]:
+            df["cyto_pathogenic_rate"] = df["Cytogenetic"].map(cyto_rates).fillna(global_mean)
+
     # Transversion flag
     purines = {"A", "G"}
     for df in [X_train, X_val, X_test]:
@@ -82,7 +89,11 @@ def encode_features(X_train, X_val, X_test, method="label"):
 
     Encoders are fit ONLY on the training set to prevent data leakage.
     """
-    categorical_cols = ["GeneSymbol", "Chromosome", "ReferenceAlleleVCF", "AlternateAlleleVCF"]
+    all_cats = [
+        "GeneSymbol", "Chromosome", "Cytogenetic",
+        "ReferenceAlleleVCF", "AlternateAlleleVCF",
+    ]
+    categorical_cols = [c for c in all_cats if c in X_train.columns]
     encoders = {}
 
     if method == "label":
@@ -98,14 +109,17 @@ def encode_features(X_train, X_val, X_test, method="label"):
             encoders[col] = le
 
     elif method == "onehot":
-        # Label encode GeneSymbol (too many unique values for one-hot)
-        le = LabelEncoder()
-        X_train["GeneSymbol"] = le.fit_transform(X_train["GeneSymbol"])
-        for df in [X_val, X_test]:
-            df["GeneSymbol"] = df["GeneSymbol"].map(
-                {label: idx for idx, label in enumerate(le.classes_)}
-            ).fillna(-1).astype(int)
-        encoders["GeneSymbol"] = le
+        # Label encode high-cardinality columns (too many unique values for one-hot)
+        for col in ["GeneSymbol", "Cytogenetic"]:
+            if col not in X_train.columns:
+                continue
+            le = LabelEncoder()
+            X_train[col] = le.fit_transform(X_train[col])
+            for df in [X_val, X_test]:
+                df[col] = df[col].map(
+                    {label: idx for idx, label in enumerate(le.classes_)}
+                ).fillna(-1).astype(int)
+            encoders[col] = le
 
         # One-hot encode low-cardinality columns
         onehot_cols = ["Chromosome", "ReferenceAlleleVCF", "AlternateAlleleVCF"]
@@ -395,6 +409,10 @@ def main():
                 "global_mean": y_train.mean(),
                 "label_encoders": encoders,
             }
+            if "Cytogenetic" in X_train.columns:
+                pipeline["cyto_rates"] = (
+                    y_train.groupby(X_train["Cytogenetic"]).mean().to_dict()
+                )
             joblib.dump(pipeline, "models/pipeline.joblib")
             print("Pipeline saved to models/pipeline.joblib")
 
@@ -445,6 +463,10 @@ def main():
                 "global_mean": y_train.mean(),
                 "label_encoders": encoders,
             }
+            if "Cytogenetic" in X_train.columns:
+                pipeline["cyto_rates"] = (
+                    y_train.groupby(X_train["Cytogenetic"]).mean().to_dict()
+                )
             joblib.dump(pipeline, "models/pipeline.joblib")
             print("\nEnsemble pipeline saved to models/pipeline.joblib")
 
