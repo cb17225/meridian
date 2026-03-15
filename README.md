@@ -63,6 +63,15 @@ streamlit run app.py
 
 The API serves predictions at `http://localhost:8000/predict` and the frontend is available at `http://localhost:8501`.
 
+### Docker
+
+```bash
+docker build -t meridian .
+docker run -p 8000:8000 -p 8501:8501 meridian
+```
+
+The project is deployed on AWS ECS/Fargate using the included Dockerfile.
+
 ## CI
 
 Linting and smoke tests run automatically on push and PR via GitHub Actions. To run locally:
