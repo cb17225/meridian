@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     if not os.path.exists(PIPELINE_PATH):
         raise RuntimeError(
             f"Pipeline not found at {PIPELINE_PATH}. "
-            "Run: python train.py xgboost"
+            "Run: python src/train.py xgboost"
         )
     pipeline = joblib.load(PIPELINE_PATH)
     yield

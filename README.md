@@ -7,11 +7,11 @@ Binary classification model predicting whether a genetic variant is pathogenic (
 
 ## Data Pipeline
 
-1. **`fetch_data.py`** — downloads `variant_summary.txt.gz` from NCBI FTP and extracts it to `data/`
-2. **`data_cleaning.ipynb`** — filters to high-confidence SNVs on GRCh38, encodes labels, and saves `data/features.json` and `data/target.json`
-3. **`eda.ipynb`** — exploratory analysis of class distribution, top genes, chromosome-level pathogenic rates, and nucleotide substitution patterns
-4. **`train.py`** — trains and evaluates models with CLI model selection
-5. **`analyze.py`** — SHAP interpretability analysis on the best model
+1. **`src/fetch_data.py`** — downloads `variant_summary.txt.gz` from NCBI FTP and extracts it to `data/`
+2. **`notebooks/data_cleaning.ipynb`** — filters to high-confidence SNVs on GRCh38, encodes labels, and saves `data/features.json` and `data/target.json`
+3. **`notebooks/eda.ipynb`** — exploratory analysis of class distribution, top genes, chromosome-level pathogenic rates, and nucleotide substitution patterns
+4. **`src/train.py`** — trains and evaluates models with CLI model selection
+5. **`src/analyze.py`** — SHAP interpretability analysis on the best model
 
 ## Features
 
@@ -38,15 +38,15 @@ Binary classification model predicting whether a genetic variant is pathogenic (
 
 ```bash
 # Fetch raw data
-python fetch_data.py
+python src/fetch_data.py
 
 # Train specific models
-python train.py xgboost
-python train.py logistic rf
-python train.py              # all models
+python src/train.py xgboost
+python src/train.py logistic rf
+python src/train.py              # all models
 
 # Run SHAP analysis
-python analyze.py
+python src/analyze.py
 ```
 
 ## Deployment
@@ -55,7 +55,7 @@ The project includes a FastAPI prediction API and a Streamlit frontend.
 
 ```bash
 # Start the API
-uvicorn api:app --reload
+uvicorn src.api:app --reload
 
 # Start the frontend (in a separate terminal)
 streamlit run app.py
@@ -66,7 +66,7 @@ The API serves predictions at `http://localhost:8000/predict` and the frontend i
 ### Docker
 
 ```bash
-docker build -t meridian .
+docker build -f deploy/Dockerfile -t meridian .
 docker run -p 8000:8000 -p 8501:8501 meridian
 ```
 

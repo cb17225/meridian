@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from train import encode_features, engineer_features, evaluate, split_data, train_model
+from src.train import encode_features, engineer_features, evaluate, split_data, train_model
 
 
 @pytest.fixture

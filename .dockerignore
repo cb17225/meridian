@@ -14,3 +14,6 @@ roadmap.txt
 tests/
 .env*
 .ruff_cache/
+task-definition.json
+create-service.json
+trust-policy.json

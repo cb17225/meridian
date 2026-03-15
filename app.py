@@ -62,7 +62,7 @@ if st.button("Predict", type="primary"):
     except requests.ConnectionError:
         st.error(
             f"Cannot connect to API at {API_URL}. "
-            "Make sure the API is running: `uvicorn api:app`"
+            "Make sure the API is running: `uvicorn src.api:app`"
         )
     except requests.Timeout:
         st.error("Request timed out. The API may be overloaded.")

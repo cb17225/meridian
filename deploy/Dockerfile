@@ -5,12 +5,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends bash \
 
 WORKDIR /app
 
-COPY requirements-deploy.txt .
+COPY deploy/requirements-deploy.txt .
 RUN pip install --no-cache-dir -r requirements-deploy.txt
 
 RUN useradd --create-home appuser
 
-COPY api.py app.py start.sh ./
+COPY src/api.py app.py deploy/start.sh ./
 COPY models/pipeline.joblib models/
 RUN chmod +x start.sh
 

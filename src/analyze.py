@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import shap
 
-from train import (
+from src.train import (
     encode_features,
     engineer_features,
     load_data,
@@ -78,7 +78,7 @@ def main():
         model = joblib.load(model_path)
         feature_names = joblib.load(features_path)
     else:
-        print("No saved model found. Run 'python train.py xgboost' first.")
+        print("No saved model found. Run 'python src/train.py xgboost' first.")
         return
 
     # Prepare validation data with same pipeline
