@@ -100,9 +100,17 @@ def predict(variant: VariantInput):
         logger.exception("Preprocessing failed")
         raise HTTPException(status_code=422, detail="Invalid input")
 
-    model = pipeline["model"]
-    proba = model.predict_proba(row)[0]
-    pred_class = int(proba[1] >= 0.5)
+    # Use ensemble if available, otherwise single model
+    if "xgb_model" in pipeline and "rf_model" in pipeline:
+        xgb_prob = pipeline["xgb_model"].predict_proba(row)[0][1]
+        rf_prob = pipeline["rf_model"].predict_proba(row)[0][1]
+        prob_pathogenic = (xgb_prob + rf_prob) / 2
+    else:
+        prob_pathogenic = pipeline["model"].predict_proba(row)[0][1]
+
+    threshold = pipeline.get("threshold", 0.5)
+    pred_class = int(prob_pathogenic >= threshold)
+    proba = [1 - prob_pathogenic, prob_pathogenic]
 
     return PredictionOutput(
         prediction="Pathogenic" if pred_class == 1 else "Benign",

@@ -6,6 +6,7 @@ import argparse
 import os
 
 import joblib
+import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -192,10 +193,10 @@ def train_model(X_train, y_train, model_type="logistic"):
     return model
 
 
-def evaluate(model, X, y, split_name=""):
+def evaluate(model, X, y, split_name="", threshold=0.5, y_prob_override=None):
     """Evaluate model and print metrics."""
-    y_pred = model.predict(X)
-    y_prob = model.predict_proba(X)[:, 1]
+    y_prob = y_prob_override if y_prob_override is not None else model.predict_proba(X)[:, 1]
+    y_pred = (y_prob >= threshold).astype(int)
 
     auroc = roc_auc_score(y, y_prob)
     f1 = f1_score(y, y_pred)
@@ -275,12 +276,39 @@ def tune_xgboost(X_train, y_train, X_val, y_val):
     return best_model, best_params
 
 
+def find_best_threshold(y_true, y_prob):
+    """
+    Find the decision threshold that maximizes F1 on the validation set.
+
+    The default 0.5 threshold assumes balanced classes. With ~85/15 imbalance,
+    the model needs a lower threshold to catch more pathogenic variants —
+    otherwise it's too conservative and misses true positives.
+
+    We sweep from 0.1 to 0.9 in steps of 0.01 and pick the threshold with
+    the highest F1 score.
+    """
+    thresholds = np.arange(0.1, 0.9, 0.01)
+    best_f1 = 0
+    best_threshold = 0.5
+
+    for t in thresholds:
+        preds = (y_prob >= t).astype(int)
+        f1 = f1_score(y_true, preds)
+        if f1 > best_f1:
+            best_f1 = f1
+            best_threshold = t
+
+    print(f"\nBest threshold: {best_threshold:.2f} (F1={best_f1:.4f})")
+    return best_threshold
+
+
 EXPERIMENTS = {
     "logistic": "Logistic Regression (label encoding)",
     "logistic-onehot": "Logistic Regression (one-hot encoding)",
     "rf": "Random Forest (label encoding)",
     "rf-feat": "Random Forest + feature engineering",
     "xgboost": "XGBoost + feature engineering (tuned)",
+    "ensemble": "XGBoost + Random Forest ensemble (tuned threshold)",
 }
 
 
@@ -369,6 +397,56 @@ def main():
             }
             joblib.dump(pipeline, "models/pipeline.joblib")
             print("Pipeline saved to models/pipeline.joblib")
+
+        elif model_key == "ensemble":
+            Xt, Xv, Xte = engineer_features(
+                X_train.copy(), X_val.copy(), X_test.copy(), y_train
+            )
+            Xt, Xv, Xte, encoders = encode_features(Xt, Xv, Xte, method="label")
+
+            # Train both models
+            xgb_model, best_params = tune_xgboost(Xt, y_train, Xv, y_val)
+            rf_model = train_model(Xt, y_train, model_type="random_forest")
+
+            # Average probabilities from both models
+            xgb_val_prob = xgb_model.predict_proba(Xv)[:, 1]
+            rf_val_prob = rf_model.predict_proba(Xv)[:, 1]
+            ensemble_val_prob = (xgb_val_prob + rf_val_prob) / 2
+
+            # Find optimal threshold on validation set
+            threshold = find_best_threshold(y_val, ensemble_val_prob)
+
+            # Evaluate on validation
+            evaluate(
+                None, Xv, y_val, "Validation (ensemble, tuned threshold)",
+                threshold=threshold, y_prob_override=ensemble_val_prob,
+            )
+
+            # Evaluate on test
+            xgb_test_prob = xgb_model.predict_proba(Xte)[:, 1]
+            rf_test_prob = rf_model.predict_proba(Xte)[:, 1]
+            ensemble_test_prob = (xgb_test_prob + rf_test_prob) / 2
+
+            evaluate(
+                None, Xte, y_test, "Test (ensemble, tuned threshold)",
+                threshold=threshold, y_prob_override=ensemble_test_prob,
+            )
+
+            # Save ensemble pipeline
+            os.makedirs("models", exist_ok=True)
+            pipeline = {
+                "xgb_model": xgb_model,
+                "rf_model": rf_model,
+                "model": xgb_model,  # fallback for API compatibility
+                "threshold": threshold,
+                "feature_names": list(Xv.columns),
+                "gene_rates": y_train.groupby(X_train["GeneSymbol"]).mean().to_dict(),
+                "chrom_rates": y_train.groupby(X_train["Chromosome"]).mean().to_dict(),
+                "global_mean": y_train.mean(),
+                "label_encoders": encoders,
+            }
+            joblib.dump(pipeline, "models/pipeline.joblib")
+            print("\nEnsemble pipeline saved to models/pipeline.joblib")
 
 
 if __name__ == "__main__":
