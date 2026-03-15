@@ -1,0 +1,14 @@
+data/
+figures/
+.git/
+.github/
+__pycache__/
+.pytest_cache/
+.ipynb_checkpoints/
+*.ipynb
+.DS_Store
+.idea/
+.vscode/
+CLAUDE.md
+roadmap.txt
+tests/

@@ -7,5 +7,10 @@
 .ipynb_checkpoints/
 __pycache__/
 .pytest_cache/
+.ruff_cache/
+.env*
 .idea/
 /models
+task-definition.json
+create-service.json
+trust-policy.json

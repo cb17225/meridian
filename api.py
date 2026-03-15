@@ -6,6 +6,7 @@ a /predict endpoint that accepts raw variant features and returns a
 pathogenicity prediction with confidence score.
 """
 
+import logging
 import os
 from contextlib import asynccontextmanager
 from typing import Literal
@@ -14,6 +15,8 @@ import joblib
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 PIPELINE_PATH = os.environ.get("PIPELINE_PATH", "models/pipeline.joblib")
 pipeline = None
@@ -93,8 +96,9 @@ def predict(variant: VariantInput):
 
     try:
         row = preprocess(variant)
-    except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Preprocessing failed: {e}")
+    except Exception:
+        logger.exception("Preprocessing failed")
+        raise HTTPException(status_code=422, detail="Invalid input")
 
     model = pipeline["model"]
     proba = model.predict_proba(row)[0]
