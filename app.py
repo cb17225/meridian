@@ -1,9 +1,4 @@
-"""
-Streamlit frontend for the Meridian variant pathogenicity predictor.
-
-Provides a form for entering variant features and displays the model's
-prediction with confidence scores. Calls the FastAPI backend.
-"""
+"""Streamlit frontend for variant pathogenicity prediction."""
 
 import os
 
@@ -16,7 +11,6 @@ st.title("Meridian")
 st.markdown("Predict whether a genetic variant is **pathogenic** or **benign**.")
 st.caption("For educational purposes only — not for clinical use.")
 
-# --- Input form ---
 st.subheader("Variant Features")
 
 col1, col2 = st.columns(2)
@@ -32,7 +26,6 @@ with col2:
     alt_allele = st.selectbox("Alternate Allele", ["A", "C", "G", "T"], index=1)
     n_phenotypes = st.number_input("Number of Phenotypes", min_value=1, max_value=100, value=1)
 
-# --- Predict ---
 if st.button("Predict", type="primary"):
     payload = {
         "GeneSymbol": gene,
@@ -62,11 +55,8 @@ if st.button("Predict", type="primary"):
         col_b.metric("Benign Probability", f"{result['benign_probability']:.2%}")
 
     except requests.ConnectionError:
-        st.error(
-            f"Cannot connect to API at {API_URL}. "
-            "Make sure the API is running: `uvicorn src.api:app`"
-        )
+        st.error("Cannot connect to prediction service. Please try again later.")
     except requests.Timeout:
-        st.error("Request timed out. The API may be overloaded.")
-    except requests.HTTPError as e:
-        st.error(f"API error: {e.response.text}")
+        st.error("Request timed out. Please try again later.")
+    except requests.HTTPError:
+        st.error("Prediction failed. Please try again later.")

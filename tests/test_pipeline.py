@@ -1,10 +1,4 @@
-"""
-Smoke tests for the training pipeline.
-
-These tests use synthetic data that mimics the real dataset's structure.
-They verify that the pipeline functions work end-to-end without needing
-the actual ClinVar data (which is gitignored and too large for CI).
-"""
+"""Smoke tests for the training pipeline using synthetic data."""
 
 import numpy as np
 import pandas as pd

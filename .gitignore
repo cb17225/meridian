@@ -11,6 +11,3 @@ __pycache__/
 .env*
 .idea/
 /models
-task-definition.json
-create-service.json
-trust-policy.json

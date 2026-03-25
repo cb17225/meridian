@@ -1,10 +1,4 @@
-"""
-FastAPI service for variant pathogenicity prediction.
-
-Loads the trained pipeline (model + preprocessing artifacts) and exposes
-a /predict endpoint that accepts raw variant features and returns a
-pathogenicity prediction with confidence score.
-"""
+"""FastAPI service for variant pathogenicity prediction."""
 
 import logging
 import os
@@ -29,10 +23,7 @@ VALID_CHROMOSOMES = tuple([str(i) for i in range(1, 23)] + ["X", "Y"])
 async def lifespan(app: FastAPI):
     global pipeline
     if not os.path.exists(PIPELINE_PATH):
-        raise RuntimeError(
-            f"Pipeline not found at {PIPELINE_PATH}. "
-            "Run: python src/train.py xgboost"
-        )
+        raise RuntimeError("Model pipeline not found")
     pipeline = joblib.load(PIPELINE_PATH)
     yield
 
@@ -45,7 +36,6 @@ app = FastAPI(
 
 
 class VariantInput(BaseModel):
-    """Raw variant features — same schema as the training data."""
     GeneSymbol: str = Field(min_length=1, max_length=50)
     Chromosome: Literal[*VALID_CHROMOSOMES]
     Cytogenetic: str = Field(min_length=1, max_length=20)
@@ -62,10 +52,9 @@ class PredictionOutput(BaseModel):
 
 
 def preprocess(variant: VariantInput) -> pd.DataFrame:
-    """Apply the same feature engineering and encoding used during training."""
+    """Replicate training feature engineering and encoding on a single input."""
     row = pd.DataFrame([variant.model_dump()])
 
-    # Target encoding — map gene/chrom to their training pathogenic rates
     gene_rates = pipeline["gene_rates"]
     chrom_rates = pipeline["chrom_rates"]
     global_mean = pipeline["global_mean"]
@@ -73,24 +62,20 @@ def preprocess(variant: VariantInput) -> pd.DataFrame:
     row["gene_pathogenic_rate"] = row["GeneSymbol"].map(gene_rates).fillna(global_mean)
     row["chrom_pathogenic_rate"] = row["Chromosome"].map(chrom_rates).fillna(global_mean)
 
-    # Cytogenetic band target encoding
     if "cyto_rates" in pipeline:
         cyto_rates = pipeline["cyto_rates"]
         row["cyto_pathogenic_rate"] = row["Cytogenetic"].map(cyto_rates).fillna(global_mean)
 
-    # Transversion flag
     purines = {"A", "G"}
     ref_is_purine = row["ReferenceAlleleVCF"].isin(purines)
     alt_is_purine = row["AlternateAlleleVCF"].isin(purines)
     row["is_transversion"] = (ref_is_purine != alt_is_purine).astype(int)
 
-    # Label encode categoricals
     label_encoders = pipeline["label_encoders"]
     for col, le in label_encoders.items():
         mapping = {label: idx for idx, label in enumerate(le.classes_)}
         row[col] = row[col].map(mapping).fillna(-1).astype(int)
 
-    # Ensure columns match training order
     row = row[pipeline["feature_names"]]
     return row
 
@@ -106,13 +91,16 @@ def predict(variant: VariantInput):
         logger.exception("Preprocessing failed")
         raise HTTPException(status_code=422, detail="Invalid input")
 
-    # Use ensemble if available, otherwise single model
-    if "xgb_model" in pipeline and "rf_model" in pipeline:
-        xgb_prob = pipeline["xgb_model"].predict_proba(row)[0][1]
-        rf_prob = pipeline["rf_model"].predict_proba(row)[0][1]
-        prob_pathogenic = (xgb_prob + rf_prob) / 2
-    else:
-        prob_pathogenic = pipeline["model"].predict_proba(row)[0][1]
+    try:
+        if "xgb_model" in pipeline and "rf_model" in pipeline:
+            xgb_prob = pipeline["xgb_model"].predict_proba(row)[0][1]
+            rf_prob = pipeline["rf_model"].predict_proba(row)[0][1]
+            prob_pathogenic = (xgb_prob + rf_prob) / 2
+        else:
+            prob_pathogenic = pipeline["model"].predict_proba(row)[0][1]
+    except Exception:
+        logger.exception("Prediction failed")
+        raise HTTPException(status_code=500, detail="Prediction error")
 
     threshold = pipeline.get("threshold", 0.5)
     pred_class = int(prob_pathogenic >= threshold)

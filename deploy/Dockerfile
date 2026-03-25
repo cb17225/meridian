@@ -8,17 +8,16 @@ WORKDIR /app
 COPY deploy/requirements-deploy.txt .
 RUN pip install --no-cache-dir -r requirements-deploy.txt
 
-RUN useradd --create-home appuser
+RUN useradd --create-home --uid 1000 appuser
 
 COPY src/api.py app.py deploy/start.sh ./
 COPY models/pipeline.joblib models/
 RUN chmod +x start.sh
 
+ENV API_URL=http://localhost:8000
+
 USER appuser
 
-EXPOSE 8000 8501
-
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+EXPOSE 7860
 
 CMD ["./start.sh"]

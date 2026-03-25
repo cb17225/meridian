@@ -11,20 +11,9 @@ import pandas as pd
 
 
 def download_clinvar(data_dir="data", force=False):
-    """
-    Download and extract ClinVar variant summary file.
-
-    Args:
-        data_dir: Destination directory
-        force: Force re-download even if file exists
-
-    Returns:
-        Path to the downloaded data
-    """
-
+    """Download and extract ClinVar variant summary file."""
     os.makedirs(data_dir, exist_ok=True)
 
-    # for maintenance information visit https://www.ncbi.nlm.nih.gov/clinvar/docs/maintenance_use/
     url = "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/variant_summary.txt.gz"
     gz_file = os.path.join(data_dir, "variant_summary.txt.gz")
     txt_file = os.path.join(data_dir, "variant_summary.txt")
@@ -53,7 +42,7 @@ def summarize_data(filepath):
     """Load and display summary statistics."""
 
     print("\nLoading data...")
-    df = pd.read_csv(filepath, sep='\t', low_memory=False)  # large file with mixed-type columns
+    df = pd.read_csv(filepath, sep='\t', low_memory=False)
 
     print(f"\nDataset: {len(df):,} variants, {len(df.columns)} columns")
 

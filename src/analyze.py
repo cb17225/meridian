@@ -1,15 +1,4 @@
-"""
-Model interpretability analysis using SHAP.
-
-SHAP (SHapley Additive exPlanations) assigns each feature an importance value
-for each prediction. Unlike global feature importance (which just says "GeneSymbol
-is important"), SHAP shows HOW each feature pushes a specific prediction toward
-pathogenic or benign, and by how much.
-
-Based on cooperative game theory: each feature is a "player" and the prediction
-is the "payout". SHAP calculates the marginal contribution of each feature
-across all possible feature combinations, giving a fair attribution.
-"""
+"""SHAP interpretability analysis for the trained model."""
 
 import matplotlib
 
@@ -31,13 +20,7 @@ from src.train import (
 
 
 def run_shap_analysis(model, X, feature_names, output_dir="figures"):
-    """
-    Run SHAP analysis and generate plots.
-
-    TreeExplainer is used because our model is tree-based (XGBoost). It's an
-    exact algorithm — not an approximation — that computes SHAP values
-    efficiently by exploiting the tree structure.
-    """
+    """Generate SHAP summary and feature importance plots."""
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(X)
 
@@ -72,7 +55,6 @@ def main():
     model_path = "models/xgboost_best.joblib"
     features_path = "models/feature_names.joblib"
 
-    # Load saved model if available, otherwise retrain
     if os.path.exists(model_path) and os.path.exists(features_path):
         print("Loading saved model...")
         model = joblib.load(model_path)
@@ -81,7 +63,6 @@ def main():
         print("No saved model found. Run 'python src/train.py xgboost' first.")
         return
 
-    # Prepare validation data with same pipeline
     X, y = load_data()
     X_train, X_val, X_test, y_train, y_val, y_test = split_data(X, y)
 
@@ -90,7 +71,6 @@ def main():
     )
     Xt, Xv, Xte, _ = encode_features(Xt, Xv, Xte, method="label")
 
-    # Run SHAP on validation set
     run_shap_analysis(model, Xv, feature_names)
 
     print("\nPlots saved to figures/shap_summary.png and figures/shap_importance.png")
