@@ -1,6 +1,8 @@
 # meridian
 Binary classification model predicting whether a genetic variant is pathogenic (1) or benign (0), trained on ClinVar data.
 
+**Live demo**: [huggingface.co/spaces/cb17225/meridian](https://huggingface.co/spaces/cb17225/meridian)
+
 ## Disclaimer
 
 **This tool is NOT intended for clinical use.** Predictions made by this model should never be used for medical diagnosis, treatment decisions, or clinical reporting. The model is error-prone, and it is simply a project of passion – it does NOT provide medical advice.
@@ -70,10 +72,10 @@ The API serves predictions at `http://localhost:8000/predict` and the frontend i
 
 ```bash
 docker build -f deploy/Dockerfile -t meridian .
-docker run -p 8000:8000 -p 8501:8501 meridian
+docker run -p 7860:7860 meridian
 ```
 
-The project is deployed on AWS ECS/Fargate using the included Dockerfile.
+The project is deployed on [Hugging Face Spaces](https://huggingface.co/spaces/cb17225/meridian) using Docker. Previously deployed on AWS ECS/Fargate.
 
 ## CI
 
